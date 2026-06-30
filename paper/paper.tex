@@ -1,0 +1,966 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Calibrated probabilistic forecasting of football match
+outcomes using machine learning and advanced feature engineering}
+
+\author{\IEEEauthorblockN{Edelweiss Gevorgyan}
+\IEEEauthorblockA{\textit{College of Science and Engineering} \\
+\textit{American University of Armenia}\\
+Yerevan, Armenia \\
+edelveys\_gevorgyan@edu.aua.am}
+\and
+\IEEEauthorblockN{Gagik Khalafyan}
+\IEEEauthorblockA{\textit{College of Science and Engineering} \\
+\textit{American University of Armenia}\\
+Yerevan, Armenia \\
+gkhalafyan@aua.am}
+}
+
+\maketitle
+
+\begin{abstract}
+Football match prediction has been gaining increasing popularity as a classification problem in recent studies, yet the value of any predictive model lies in finding the right balance between correctly identifying the outcome and making sure that the predicted probabilities reliably reflect the actual likelihood of these outcomes. Rather than treating the task of predicting football match outcome purely as a classification problem, this paper discusses a machine learning framework for predicting football match results with a particular focus on both predictive accuracy and the quality of predicted probabilities, generating calibrated estimates for three outcomes: home win, draw, and away win. Historical data from La Liga matches were used to engineer a feature set capturing match context and team strength. Four models were trained and compared, including Logistic Regression, Random Forest, XGBoost, and AutoGluon, with AutoGluon achieving the highest classification accuracy of 64.3\%. Models were evaluated progressing from standard measures such as accuracy and log-loss to calibration analysis using Expected Calibration Error, Brier Score, and Ranked Probability Score, benchmarked against bookmaker-implied probabilities with an ECE of 0.036. Temperature Scaling reduced XGBoost's ECE from 0.048 to 0.033, outperforming the bookmaker benchmark. A key finding is that classification accuracy and probability calibration are independent properties, with direct implications for model selection in any application where probability estimates drive financial or strategic decision-making.
+\end{abstract}
+
+\begin{IEEEkeywords}
+football match prediction, probability calibration, machine
+learning, probabilistic forecasting
+\end{IEEEkeywords}
+
+\section{Introduction}
+Football match result prediction has become increasingly popular
+in the fields of sports analytics and machine learning over the
+past decade. Most of the existing solutions address this task as
+a supervised classification task: given a set of pre-match and
+in-play features, a model predicts one of two or three outcomes:
+a home win or not a home win, or, in the case of a three-way
+outcome, a home win, draw, or an away win. This framework has
+become a useful tool for benchmarking various algorithms
+performance, and leading-edge models often achieve accuracies
+in the range of 60 to 65 percent on major European league
+data~\cite{b1}\cite{b2}\cite{b3}.
+
+However, framing football match prediction purely as a
+classification task often results in fundamental mismatch when
+the intended application uses probabilistic decision-making. In
+risk assessment, betting markets, or any other context where
+decisions are based not only on the predicted class label, but
+also magnitude of predicted probabilities, the reliability of
+these probabilities becomes one of the most important metrics
+of the model.
+
+The distinction between predicting the right outcome and
+predicting a reliable probability is formally captured by the
+concept of calibration. A model is considered well-calibrated
+if its predicted probabilities correspond to the actual
+frequencies of observed outcome. Formally, among all events
+assigned predicted probability p, approximately a proportion p
+of those events should actually occur. Calibration is therefore
+not a property of the most likely predicted class, but a
+property of the entire distributional profile, and it cannot
+be inferred from the model accuracy alone.
+
+Despite the importance, probability calibration remains
+underdeveloped in football prediction. Most of the existing
+studies pervasively evaluate models using accuracy, F1 score,
+or simulated betting profit. While these metrics measure whether
+the predicted outcome is correct, they do not explicitly measure
+the reliability and trustworthiness of the predicted
+probabilities. Most existing machine learning models produce
+probability estimates as an architectural consequence, yet this
+information is rarely subjected to calibration diagnosis. As a result, the question of whether the predicted probabilities of common football match predicting models can be trustworthy and serve as a basis for strategic decision-making remains largely unaddressed.
+
+Addressing that gap directly, this paper's pivotal contribution
+consists of a systematic framework for evaluating the
+probabilistic robustness of machine learning models in football
+match prediction, combining calibration as a primary performance
+metric alongside classification performance. The framework is
+applied to Spanish La Liga match data covering ten seasons
+spanning from 2015/2016 to 2024/2025, using four models across
+a gradient of architectural complexity: Logistic Regression,
+Random Forest, XGBoost, and AutoGluon. Bookmaker-implied
+probabilities serve as a calibration benchmark, providing a
+functional point of reference that reflects the market-implied
+consensus of the active forecasting markets.
+
+In addressing this gap, this paper first compares four machine
+learning models in terms of both classification metrics and
+calibration diagnosis, including Expected Calibration Error
+(ECE), Maximum Calibration Error (MCE), Brier Score, and Ranked
+Probability Score. Secondly, three post-hoc calibration methods
+including Platt Scaling, Isotonic Regression, and Temperature
+Scaling are applied for the models that need calibration
+correction. Then, model-implied probabilities are benchmarked
+against bookmaker-implied probabilities to assess operational
+relevance. In the end, the paper provides evidence that model
+accuracy and model reliability are independent properties, and
+that the selected model should account for both dimensions
+depending on the intended application.
+To this end, this paper addresses the following
+research questions:
+\begin{itemize}
+    \item \textbf{} Do standard machine learning
+    models produce well-calibrated results for football
+    match outcomes, and how do their produced
+    probabilities compare to market-implied probabilities
+    across three outcome classes?
+    \item \textbf{} Can post-hoc calibration methods
+    improve the probabilistic quality of poorly
+    calibrated models without degrading classification
+    accuracy?
+\end{itemize}
+
+\section{Related work}
+A wide range of machine learning models have been applied to
+football match outcome prediction across major European Leagues.
+These models include Random Forest, Support Vector Machine (SVM),
+XGBoost and its expansions, Neural Networks, and Long Short-Term
+Memory architectures~\cite{b1}\cite{b2}\cite{b3}. These
+predictions typically integrate historical match statistics, team
+ratings (FIFA, Elo), player attributes, and bookmaker odds, with
+state-of-the-art models achieving accuracies in the range of 63
+to 65 percent on English Premier League and international match
+data. By addressing class distribution, balanced sampling
+techniques have been proven to extensively increase predictive
+performance, with binary classifications consistently
+outperforming multiclass (3-class) predictions in multiple
+experimental setups~\cite{b3}. Apart from accuracy, some studies
+suggest that machine learning models can generate positive betting
+returns under simulation and in certain setups even outperform
+bookmaker prediction performance in terms of
+accuracy~\cite{b4}. With the development of advanced team and
+player performance metrics such as expected goals (xG) and dynamic
+team ratings, the prediction accuracies have been consistently
+bolstered relative to traditional goal-based
+approaches~\cite{b5}.
+However, these studies share a common limitation: model selection
+and evaluation are driven entirely by classification performance,
+without examining whether the predicted probabilities themselves
+are reliable. Rodrigues and Pinto~\cite{b1} evaluate performance
+through accuracy and profit simulation only, Rahman~\cite{b2}
+focuses on predictive accuracy without any probabilistic
+assessment, and Choi et al.~\cite{b3} similarly rely on accuracy,
+F1 score, and AUC as primary criteria. As a result, whether the
+probability outputs of these models can be trusted for
+decision-making remains an open question.
+
+Despite the expansive sense of this literature, evaluation of
+model performance remains primarily classification-focused. Model
+performance is typically evaluated through accuracy, F-1 score,
+area under the curve, simulated return on investment (ROI), and
+the probabilistic reliability of outputs is rarely examined.
+
+An emerging but expanding area of work has shifted the attention
+from pure classification accuracy to the quality of probabilistic
+performance in football prediction. Calibration in different
+models has been shown to be dependent on the model itself: some
+models benefit from post-hoc calibration, others experience
+performance downgrade, and careful hyperparameter tuning to
+optimize log-loss can also yield well-calibrated results without
+additional calibration correction~\cite{b6}.
+
+Wheatcroft and Sienkiewicz~\cite{b6} evaluate seven machine
+learning models across 35,733 matches from 22 European leagues,
+finding that Platt Scaling improved calibration only for certain
+models such as Gaussian Naive Bayes and AdaBoost, and actually
+reduced performance for others, establishing that post-hoc
+calibration should not be automatically applied but must be tested
+on a per-model basis. Beyond calibration correction, the study
+introduces a conceptually important shift: rather than optimizing
+hyperparameters for log-loss, models are tuned directly for
+betting profit using value betting and Kelly strategies. While
+forecast skill and profit are related, the relationship is shown
+to be imperfect, suggesting that model selection should account
+for the intended decision context rather than a single universal
+metric. Neural Networks achieved the best performance in both
+log-loss and betting profitability, further supporting the
+argument that architectural complexity and proper score
+optimization interact in non-trivial ways.
+The choice of evaluation criterion is itself consequential: the
+Ranked Probability Score, widely used in sports analytics, has
+been shown to be less efficient than the logarithmic score for
+the identification of robust forecasting frameworks, and its
+adoption of outcome proximity as a reward metric lacks theoretical
+justification~\cite{b7}.
+
+Wheatcroft~\cite{b7} compares three proper scoring rules: the
+Ignorance score (logarithmic score), the Brier Score, and the
+Ranked Probability Score, across two simulation experiments
+involving over 39,000 football matches. The central argument is
+that sensitivity to distance, the defining property of the RPS,
+does not align with the fundamental purpose of scoring rules,
+because once an outcome is observed, no information is revealed
+about the probabilities of unrealised outcomes. The Ignorance
+score, being local, consistently identifies superior forecasting
+systems with fewer observations than both the Brier Score and the
+RPS, particularly when differences between candidate forecasts
+are subtle. From an information-theoretic perspective, the
+Ignorance score is closely related to log-likelihood, inheriting
+desirable inferential properties that are absent in the RPS. This
+has direct implications for model comparison in sports analytics,
+where near-optimal forecasting systems are common and evaluation
+efficiency is critical.
+Score decomposition methods show that low accuracy scores in
+football prediction originate from limited resolution rather than
+miscalibration, especially for draw outcomes~\cite{b11}.
+
+Foulley~\cite{b11} extends the evaluation of probabilistic
+football forecasts beyond mean scoring rules by applying Murphy's
+calibration-refinement decomposition to UEFA Champions League
+forecasts generated from a Poisson regression model with
+ELO-based covariates, compared against bookmaker-implied
+probabilities. Results show that both approaches are generally
+well-calibrated, but bookmakers exhibit slightly stronger
+resolution and discrimination, especially for home and away wins,
+while draw forecasts consistently display the weakest resolution
+across all evaluated approaches. A key finding is that most
+forecast deficiencies originate not from miscalibration but from
+limited resolution, meaning that models assign probabilities that
+are reliable on average but insufficiently sharp to discriminate
+between outcomes. This methodological contribution shifts
+attention from simple accuracy comparisons toward understanding
+why forecasts succeed or fail, a perspective directly relevant to
+the calibration framework developed in this paper.
+Bayesian approaches, in contrast, have yielded calibration
+outcomes that are competitive relative to traditional
+benchmarks~\cite{b8}.
+
+Diniz et al.~\cite{b8} develop two Bayesian multinomial-Dirichlet
+models for predicting match outcomes in the Brazilian first
+division, operating directly on categorical outcome counts rather
+than detailed covariates. The models exploit Dirichlet-multinomial
+conjugacy to derive closed-form posterior predictive
+probabilities, and combine home and away information through
+linear opinion pooling. Empirical evaluation across 1,710 matches
+shows that these models achieve calibration performance comparable
+to or better than Bradley-Terry and Poisson-based benchmarks
+under proper scoring rules including the Brier Score and
+logarithmic score. A key contribution is the emphasis on
+probabilistic evaluation rather than classification accuracy,
+with the authors explicitly assessing calibration and concluding
+that some competing models overestimate probabilities for frequent
+outcomes. However, the framework assumes independence between
+matches and relies solely on aggregate outcome counts, ignoring
+dynamic team strength evolution, player-level covariates, and
+contextual variables, limiting its applicability to more complex
+prediction settings.
+
+From a wider machine learning perspective, Guo et al.~\cite{b9}
+show that modern neural networks tend to be overconfident even
+with high classification accuracy performance. Their study shows
+that Temperature Scaling, a simple one-parameter post-hoc
+correction, consistently reduces the Expected Calibration Error
+without harming the overall classification performance.
+
+This overconfidence arises from increased model depth, reduced
+regularization, and the use of Batch Normalization, and is
+observed even when classification accuracy continues to improve,
+demonstrating that accuracy and calibration can diverge
+structurally rather than as an isolated empirical result.
+Among all evaluated post-hoc methods including histogram binning,
+isotonic regression, Platt scaling, vector scaling, and matrix
+scaling, Temperature Scaling provided the most effective and
+computationally efficient calibration across tasks, adjusting
+softmax outputs without changing classification decisions.
+This finding is directly linked to ensemble models used in
+football prediction, which show similar probability performance
+patterns. Synthesizing 219 studies, a large-scale systematic
+review reveals that in sports analytics and especially betting
+research the preference is still given to classification
+accuracy, while the call for stronger probabilistic standards and
+strategic decision-oriented frameworks is gaining significant
+momentum~\cite{b10}.
+
+Galekwa et al.~\cite{b10} identify recurring challenges across
+this body of work, including data quality limitations, lack of
+standardized evaluation metrics, overfitting, and weak
+out-of-sample validation, and argue for a shift toward
+decision-oriented frameworks using portfolio-based betting
+strategies to better balance return and risk. Importantly, the
+review highlights that many studies still prioritize
+classification accuracy despite evidence that accuracy alone does
+not ensure betting profitability, a finding that directly
+motivates the calibration-first framework developed in this paper.
+
+Existing calibration research in football forecasting tends to
+focus on specific models, binary formulations, or
+single-competition setups. Systematic comparison of post-hoc
+correction methods, comprehensive multidimensional calibration
+profile, and direct benchmarking against market-implied
+probabilities remain rare. This paper addresses that gap directly
+by treating calibration as a primary performance criterion,
+applied consistently across four models on a decade of Spanish
+La Liga historical data~\cite{b13}.
+
+Despite its contributions and the depth of surveyed literature,
+this study has several limitations that distinguish it from other
+work. The developed framework is restricted to a single league,
+Spanish La Liga, and a single season of 380 matches, which limits
+the generalization of the findings across different contexts.
+Furthermore, the feature set is limited to pre-match features and
+does not incorporate in-play data, player-level statistics, and
+the study does not employ LSTM architecture or neural networks.
+These aspects are reserved for future work.
+
+\section{Methods}
+\subsection{Dataset and experimental setup}
+The dataset includes historical data from ten seasons
+of Spanish La Liga, spanning from season 2015/2016 to
+2024/2025, yielding a dataset of 3,699 matches in total~\cite{b13}. A
+strict temporal split was used for training and testing to reflect
+realistic deployment conditions and prevent data leakage: all
+models were trained chronologically on seasons up to and including
+2023/2024, corresponding to 3,319 matches, and tested
+on the held-out 2024/2025 season, including 380 matches.
+The target variable was set to full-time result, represented
+as one of three possible discrete outcomes: home win, draw,
+and away win, with class frequencies of 45.5\%, 26\% and
+28.5\% respectively in the training set, highlighting the well-
+documented home advantage effect in football.
+
+The overall implementation follows a sequential pipeline.
+Raw match data is first collected and preprocessed, after which
+features are constructed through domain-driven feature engineering.
+Statistical selection methods, including ANOVA F-tests and VIF
+analysis, are then applied to retain only significant and
+independent signals. The selected feature set is used to train
+four machine learning models on historical seasons, and
+classification performance is evaluated on the held-out test
+season using accuracy, F1 score, and log-loss. For models
+identified as poorly calibrated, post-hoc calibration methods
+are applied, and calibration quality is subsequently evaluated
+using Expected Calibration Error, Brier Score, and Ranked
+Probability Score, benchmarked against bookmaker-implied
+probabilities.
+
+\subsection{Feature engineering}
+The original feature set was built through exploratory data
+analysis combined with domain knowledge, leveraging theoretically
+grounded indicators from analyzed literature. After
+statistical selection, fifteen features across five groups were
+chosen as a main feature set. Among these, bookmaker-implied
+probabilities for three outcomes were included, converted from
+raw odds after removing the over-round margin. The team
+strength group captured the Elo rating difference between two
+teams, providing a dynamic metric of team quality updated
+after every match. The form group includes rolling differentials
+in points earned in the last five matches, where a win
+is awarded three points, a draw one point, and a loss no
+points, following standard football competition rules, defensive
+and attack performance, and goals scored. The tactical
+performance group included expected point difference, passes
+per defensive action, deep completions, and shots on target
+difference. Finally, the underlying group captured longer-term
+offensive and defensive tendencies, including season-average
+expected goals for home and away teams. The final feature
+set was formalized using two statistical methods. ANOVA
+F-tests were applied to remove statistically insignificant features,
+keeping only features that have statistically significant
+correlation with the target variable. VIF analysis was then
+conducted to eliminate multicollinear features, ensuring that
+only independent signals are included in the final set. In
+addition to the three-class formulation of the task, a binary
+reformulation with possible outcome Home win versus Not
+home win is introduced as a complementary experiment. Given
+the well-documented difficulty of draw class prediction, the
+three-class method was simplified to binary class to assess
+whether the feature set retains strong discriminative power
+when the class imbalance is reduced. The binary reformulation
+is evaluated using F1-score, ROC-AUC and accuracy.
+
+\subsection{Models}
+All models were implemented in Python using the scikit-learn
+library for Logistic Regression, Random Forest, and calibration
+methods, the XGBoost library for gradient boosting, and the
+AutoGluon framework for automated machine learning.
+
+Four models were evaluated, representing a diverse range
+of architectural complexity. As a principled baseline, Logistic
+Regression with L2 regularization was used, as it directly
+optimizes the log-loss score during training, which naturally
+yields well-calibrated results~\cite{b6}. Random Forest was tuned
+through minimum leaf size to prevent probability compression
+that usually arises from vote-fraction averaging~\cite{b12}, with a
+final configuration of maximum depth 10 and minimum leaf
+of 20. XGBoost was tuned via systematic grid search to minimize
+multi-class log-loss.
+XGBoost was selected over other gradient boosting alternatives
+such as LightGBM due to its well-established performance on
+tabular classification tasks and its native support for
+multiclass log-loss optimization, making it a natural fit for
+the calibration-focused experimental setup of this paper.
+AutoGluon, an automated machine learning framework, constructs
+a weighted ensemble across multiple base learners automatically;
+the final configuration used the best-quality preset with a
+budget of 1,800 seconds.
+AutoGluon was included to provide an upper bound on ensemble
+performance without manual tuning, serving as a reference point
+for what automated model selection and stacking can achieve
+relative to individually tuned models.
+
+\subsection{Calibration methods}
+After the evaluation of models, three post-hoc calibration
+techniques were applied for Random Forest and XGBoost,
+each fitted using five-fold cross-validation to prevent leakage.
+Platt Scaling fits a logistic regression model on raw model
+scores to adjust output probabilities~\cite{b12}.
+AutoGluon was excluded from external post-hoc calibration
+as it natively incorporates Temperature Scaling through its
+built-in calibration parameter, which automatically applies
+probability calibration on the validation set during the
+fitting process, making additional external correction
+redundant within this experimental setup.
+Isotonic Regression applies a non-parametric monotonic
+transformation to predicted probabilities and is known to
+require large datasets to perform reliably~\cite{b12}.
+Despite this limitation, Isotonic Regression was included to
+provide a comprehensive comparison of post-hoc correction
+methods and to empirically confirm whether its known
+unreliability on small datasets is reproduced in this
+experimental setup.
+Temperature Scaling, introduced by Guo et al.~\cite{b9},
+divides model logits by a single learned scalar parameter $T$
+before applying the softmax function:
+\begin{equation}
+\hat{p}_i = \frac{\exp(z_i/T)}{\sum_j \exp(z_j/T)}
+\end{equation}
+where $z_i$ are the raw logits for class $i$ and $T$ is the
+temperature parameter optimized on a held-out validation set.
+A temperature below 1 sharpens the probability distribution
+and corrects systematic under-confidence, while a temperature
+greater than 1 softens it, reducing overconfidence~\cite{b9}.
+Temperature Scaling is considered well-suited for calibration
+correction for applications where classification performance
+must be preserved~\cite{b9}.
+
+\subsection{Model evaluation}
+Models were compared across two dimensions. Classification
+performance was assessed based on accuracy, per-class F-1
+score, and ROC-AUC for Home win/No Home win binary
+reformulation of the task. For probabilistic reliability, five
+calibration metrics were computed. First, Expected Calibration
+Error (ECE) approximates the average difference between
+the predicted probability and observed outcome frequency
+across partitioned confidence intervals, where a smaller gap
+indicates better calibration and zero represents a perfect match
+between predicted and observed probabilities~\cite{b9}.
+Maximum Calibration Error (MCE) captures the worst-case gap
+across all probability bins, providing an upper bound on
+miscalibration. The Brier Score measures the mean squared
+difference between predicted probabilities and binary outcome
+indicators, penalizing both miscalibration and poor
+sharpness~\cite{b7}. The Ranked Probability Score extends this
+to ordered multiclass outcomes by penalizing probability mass
+assigned too far from the actual outcome~\cite{b8}. Reliability
+diagrams provide a qualitative counterpart to numerical metrics
+by plotting predicted probabilities against observed frequencies
+graphically. Bookmaker-implied probabilities serve as the
+calibration benchmark throughout all experiments, with an
+observed ECE of 0.036.
+
+\section{Results}
+All models were tested on a held-out La Liga season consisting
+of 380 matches. Table~\ref{tab1} summarizes the classification
+results of multi-class models alongside the betting market as a
+baseline. All the models consistently outperformed the bookmaker baseline, showing that the engineered feature set captures
+meaningful signals beyond what is already covered in the
+bookmaker odds. Among all the models, AutoGluon achieved the
+highest overall accuracy and the best log-loss, followed by
+Random Forest, Logistic Regression, and XGBoost in descending
+order.
+
+Logistic Regression's strong log-loss performance in comparison
+with other models suggests that the nature of the feature set
+is largely linear in essence. This observation is further
+supported by the fact that XGBoost underperformed both Logistic
+Regression and Random Forest across all classification metrics,
+despite its architectural complexity.
+
+Predicting draw was consistently the most challenging for all
+the models, as shown in the F1 Draw and Draw Recall columns in
+Table~\ref{tab1}. This is consistent with the wider football
+analytics literature, where draw outcomes have lower base rate
+and higher outcome uncertainty~\cite{b7}\cite{b9}. Home win
+prediction was the strongest across all models, showcasing the
+class frequency imbalance as described in the previous section.
+
+\begin{table}[htbp]
+\caption{Multi-class classification results}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Acc.} & \textbf{LL} &
+\textbf{F1 H} & \textbf{F1 D} & \textbf{F1 A} &
+\textbf{DR} \\
+\hline
+AutoGluon & 0.643 & 0.831 & 0.746 & 0.451 & 0.657 & 0.469 \\
+\hline
+Rand. Forest & 0.637 & 0.848 & 0.753 & 0.319 & 0.640 & 0.227 \\
+\hline
+Log. Reg. & 0.629 & 0.845 & 0.759 & 0.256 & 0.636 & 0.175 \\
+\hline
+XGBoost & 0.616 & 0.857 & 0.738 & 0.197 & 0.654 & 0.134 \\
+\hline
+Betting BL & 0.544 & - & - & - & - & - \\
+\hline
+\multicolumn{7}{l}{Acc.=Accuracy, LL=Log Loss, H=Home, D=Draw,} \\
+\multicolumn{7}{l}{A=Away, DR=Draw Recall, BL=Baseline}
+\end{tabular}
+\label{tab1}
+\end{center}
+\end{table}
+
+\subsection{Binary classification}
+Given the persistent difficulties to predict draw results across
+all models, a binary reformulation of the task was introduced
+as a complementary approach. By changing the multiclass setting
+to Home Win vs. Not Home Win reformulation, the three-class
+imbalance was reduced and the model can focus on the most
+frequent outcome class. Under this reformulation, all four
+models consistently achieved substantially higher results, as
+reported in Table~\ref{tab2}. The uniformly high performance
+across all models confirms that the feature set is specifically
+informative for predicting home win, and suggests that the
+significant portion of prediction errors are closely tied to
+the hard prediction of the draw class rather than the limitation
+of the feature set or model architecture.
+
+\begin{table}[htbp]
+\caption{Binary classification results (Home win vs. not home win)}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Acc.} & \textbf{AUC} &
+\textbf{F1 HW} & \textbf{F1 NH} & \textbf{vs. BM} \\
+\hline
+Rand. Forest & 0.753 & 0.811 & 0.78 & 0.72 & +13.8 pp \\
+\hline
+Log. Reg. & 0.747 & 0.817 & 0.78 & 0.71 & +13.2 pp \\
+\hline
+XGBoost & 0.743 & 0.808 & 0.77 & 0.70 & +12.8 pp \\
+\hline
+Bookmaker BL & 0.615 & - & - & - & Reference \\
+\hline
+\multicolumn{6}{l}{Acc.=Accuracy, HW=Home Win, NH=Not Home,} \\
+\multicolumn{6}{l}{BM=Bookmaker, BL=Baseline}
+\end{tabular}
+\label{tab2}
+\end{center}
+\end{table}
+
+\subsection{Calibration analysis}
+Table~\ref{tab3} summarizes calibration results before
+and after post-hoc correction for all models, benchmarked
+against bookmaker-implied probabilities, with an ECE of
+0.036. Table~\ref{tab4} provides a further breakdown of
+per-class calibration performance before and after
+Temperature Scaling.
+
+Logistic Regression achieved the best natural calibration
+of all models before any correction, with an ECE of 0.0351,
+marginally better than the bookmaker benchmark. This outcome
+is consistent with the known property of logistic regression
+that directly optimizing log-loss during training naturally
+encourages well-calibrated probability outputs~\cite{b6}\cite{b10}.
+No post-hoc correction was required. Per-class analysis in
+Table~\ref{tab4} confirms that draw predictions achieved
+the best calibration of the three outcome classes with an
+ECE of 0.0157, while away win predictions showed the largest
+calibration gap before correction, a gap of 0.0549.
+
+Random Forest showed the worst natural calibration results,
+notably worse than the bookmaker, despite outperforming it
+on all the classification metrics as shown in
+Table~\ref{tab1}. The model had the second highest accuracy
+at 0.637, yet is the worst naturally calibrated among all
+models. This is confirmed by the fact that classification
+accuracy and probability reliability are independent, and
+can diverge substantially in certain setups. Confidence
+quintile analysis confirmed that Random Forest systematically
+underestimated its own probabilities in every confidence bin,
+which is a known consequence of vote-fraction probability
+compression in ensemble models~\cite{b12}. Among three
+post-hoc methods assessed, Temperature Scaling yielded the
+best results, reducing ECE from 0.0453 to 0.0362, achieving
+the benchmark while also improving log-loss, Ranked
+Probability Score, and Brier Score all together. Platt
+Scaling, in contrast, provided only partial improvement,
+and Isotonic Regression performed poorly due to the limited
+size of the test data of 380 matches, consistent with its
+known requirement for large calibration datasets~\cite{b12}.
+
+As shown in Table~\ref{tab3}, XGBoost showed the largest
+natural calibration error among all models, despite being
+tuned to minimize log-loss during hyperparameter search.
+This suggests that log-loss optimization alone does not
+guarantee well-calibrated outputs for gradient boosting
+models, unlike for Logistic Regression, which is naturally
+well-calibrated. Confidence quintile analysis showed
+systematic underconfidence across all portions, with
+high-confidence predictions having the largest gaps. The
+chosen Temperature Scaling parameter dropped below one,
+confirming that sharpening was required rather than
+softening. After calibration correction, XGBoost achieved the best
+post-calibration ECE of all models, reducing ECE from 0.0480
+to 0.0327, demonstrating that a model built on
+bookmaker-derived features can be successfully re-calibrated
+to produce reliable probability estimates, despite having
+the second lowest classification accuracy as shown in
+Table~\ref{tab1}. The largest
+improvement for a specific class was observed for away
+team win predictions. However, the improvement was not
+uniform, draw calibration increased from 0.0222 to 0.0257,
+suggesting that uniform temperature parameters may not
+optimally correct calibration across all outcome classes.
+
+In general, prior to any calibration correction, only
+Logistic Regression achieved the benchmark level
+calibration, due to its nature. All three models matched
+or exceeded the market benchmark after applying Temperature
+Scaling, showing that achieving well-calibrated results is
+feasible with standard machine learning models. Temperature
+Scaling was the most effective post-hoc calibration method,
+systematically improving the probability quality, while
+preserving the classification accuracy.
+
+\begin{table}[htbp]
+\caption{Calibration results before and after post-hoc correction}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{ECE B} & \textbf{ECE A} &
+\textbf{Method} & \textbf{vs. BM} & \textbf{Verdict} \\
+\hline
+Log. Reg. & 0.0351 & 0.0351 & None & Better & Good \\
+\hline
+Rand. Forest & 0.0453 & 0.0362 & T.S. (0.894) & Matches & Good \\
+\hline
+XGBoost & 0.0480 & 0.0327 & T.S. (0.748) & Better & Good \\
+\hline
+Bookmaker & 0.0361 & - & - & Ref. & Ref. \\
+\hline
+\multicolumn{6}{l}{ECE B=Before, ECE A=After, BM=Bookmaker,} \\
+\multicolumn{6}{l}{T.S.=Temperature Scaling}
+\end{tabular}
+\label{tab3}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Per-class ECE before and after Temperature Scaling}
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Class} &
+\textbf{ECE Before} & \textbf{ECE After} \\
+\hline
+Log. Reg. & Home Win & 0.0347 & 0.0347 \\
+\cline{2-4}
+ & Draw & 0.0157 & 0.0157 \\
+\cline{2-4}
+ & Away Win & 0.0549 & 0.0549 \\
+\hline
+Rand. Forest & Home Win & 0.0558 & 0.0367 \\
+\cline{2-4}
+ & Draw & 0.0318 & 0.0299 \\
+\cline{2-4}
+ & Away Win & 0.0483 & 0.0421 \\
+\hline
+XGBoost & Home Win & 0.0597 & 0.0453 \\
+\cline{2-4}
+ & Draw & 0.0222 & 0.0257 \\
+\cline{2-4}
+ & Away Win & 0.0621 & 0.0272 \\
+\hline
+\end{tabular}
+\label{tab4}
+\end{center}
+\end{table}
+
+\section{Analysis and Validation}
+
+\subsection{Key findings}
+These results reveal three main findings. First, log-loss
+optimization during training is a meaningful step for cal-ibration quality. As confirmed by the results for Logistic
+Regression, natural minimization of log-loss requires no post-hoc correction and produces the best probability reliability,
+consistent with the results of Wheatcroft and Sienkiewicz~\cite{b6},
+who show that careful optimization of a proper score during
+initial training can fully substitute the calibration correction
+process.
+
+Secondly, Temperature Scaling is the most recommended
+post-hoc calibration method for ensemble models in this
+particular experimental setup. It consistently outperformed
+other post-hoc calibration methods such as Platt Scaling and
+Isotonic Regression while preserving classification performance.
+Its single-parameter simplicity and computational efficiency
+make it well-suited for small-to-medium datasets in sports
+evaluation, and Isotonic Regression, in contrast, was shown
+to be unreliable~\cite{b12}.
+
+Lastly, and most importantly, classification accuracy and
+calibration quality are mutually distinct characteristics of
+a machine learning model, as clearly illustrated in
+Tables~\ref{tab1},~\ref{tab3}, and~\ref{tab4}. Models with
+lower classification accuracy achieved the best post-hoc
+calibration ECE. This dissociation confirms that model
+selection must consider both dimensions separately depending
+on the intended application. For strategic decision-making
+applications where probability estimates drive financial
+decisions, calibration quality and probability reliability
+should be weighted at least as heavily as classification
+accuracy~\cite{b6}\cite{b11}.
+
+\subsection{Validation}
+The results of this paper are validated through three
+complementary approaches. First, a strict temporal split
+was applied throughout all experiments, ensuring that no
+future data was used during training and that the evaluation
+reflects realistic deployment conditions. Second,
+bookmaker-implied probabilities, with an observed ECE of
+0.036, serve as a functional calibration benchmark,
+representing the market-implied consensus of professional
+forecasting markets and providing a meaningful reference
+point for assessing the probabilistic quality of model
+outputs. Third, five-fold cross-validation was applied
+during post-hoc calibration fitting to prevent leakage
+between calibration and evaluation sets. Together, these
+validation approaches ensure that the reported results
+are not artifacts of data leakage or overfitting, and
+that the calibration improvements observed after
+Temperature Scaling reflect genuine improvements in
+probabilistic reliability.
+
+\subsection{Comparison with existing work}
+The classification results obtained in this paper are
+consistent with the wider football analytics literature,
+where leading-edge models achieve accuracies in the range
+of 63 to 65 percent on major European league data~\cite{b1}\cite{b2}\cite{b3}.
+AutoGluon's best accuracy of 64.3\% falls within this
+established range, confirming that the engineered feature
+set is competitive with state-of-the-art approaches.
+The persistent difficulty of draw prediction is consistent
+with the findings of Foulley~\cite{b11}, who shows that
+draw outcomes consistently display the weakest resolution
+and discrimination across all evaluated models and
+benchmarks. The natural calibration of Logistic Regression
+without any post-hoc correction is consistent with the
+findings of Wheatcroft and Sienkiewicz~\cite{b6}, who
+demonstrate that careful optimization of a proper score
+during training can substitute calibration correction.
+The failure of Isotonic Regression on the 380-match test
+set directly confirms its known requirement for large
+calibration datasets as established by Kull et al.~\cite{b12}.
+The effectiveness of Temperature Scaling in improving
+calibration without degrading classification performance
+is consistent with the findings of Guo et al.~\cite{b9},
+who demonstrate this property across a range of modern
+machine learning models.
+
+\subsection{Objectives and limitations}
+This paper set out to address two research questions:
+whether standard machine learning models produce
+well-calibrated results for football match outcomes, and
+whether post-hoc calibration methods can improve
+probabilistic quality without degrading classification
+accuracy. Both objectives were met. All four models were
+systematically evaluated across classification and
+calibration dimensions, and post-hoc calibration with
+Temperature Scaling successfully improved the probabilistic
+quality of Random Forest and XGBoost to at or beyond the
+bookmaker benchmark, while preserving classification
+performance in both cases.
+
+Several limitations of this work should be acknowledged.
+The framework is restricted to a single league, Spanish
+La Liga, and evaluated on a single held-out season of
+380 matches, which limits the generalization of the
+findings across different competitions and time periods.
+The feature set is limited to pre-match features and does
+not incorporate in-play data or player-level statistics,
+which may capture additional predictive signals. A single
+global Temperature Scaling parameter was applied across
+all outcome classes, yet the per-class results in
+Table~\ref{tab4} show that calibration improvement was
+not uniform across home win, draw, and away win outcomes,
+suggesting that class-specific calibration correction
+may be more appropriate. Finally, the study does not
+investigate the relationship between calibration quality
+and betting profitability, which remains an important
+direction for future work.
+
+\section{Conclusion}
+This paper presented a machine learning framework for
+calibrated forecasting of football match outcomes, with
+calibration metrics as the final evaluation criterion. Four
+machine learning models - Logistic Regression, Random
+Forest, XGBoost, and AutoGluon - were trained on ten
+seasons of Spanish La Liga data and assessed using a holistic
+array of classification and calibration diagnostics,
+benchmarked against betting market-implied probabilities.
+The main contributions of this work are threefold: a
+systematic calibration-first evaluation framework applied
+consistently across four models of varying architectural
+complexity, a direct benchmarking of model-implied
+probabilities against professional bookmaker probabilities,
+and empirical evidence that classification accuracy and
+probability calibration are independent properties with
+direct implications for model selection in probabilistic
+forecasting applications.
+
+On classification performance, all models outperformed the
+bookmaker baseline with AutoML model AutoGluon achieving the
+best results in terms of accuracy. Draw prediction remained
+the central problem of outcome prediction across all models,
+a finding consistent with the broader literature. The binary
+reformulation of the task confirmed that the significant
+prediction error is a direct consequence of the hard
+predictive nature of the draw class, rather than a limitation
+of model selection or architecture.
+
+As for calibration, the results demonstrate that achieving a
+well-calibrated probabilistic forecast is feasible with
+machine learning models, and post-hoc correction with a
+single parameter sufficiently improves calibration metrics
+and achieves the professional bookmaker baseline. Logistic
+Regression showed well-calibrated results without any
+corrections, while XGBoost and Random Forest required
+Temperature Scaling to achieve competitive performance.
+Notably, XGBoost demonstrated that a model built on
+bookmaker-derived features can be successfully recalibrated
+to produce reliable probability estimates.
+Isotonic Regression consistently worsened the model's
+probability performance, which is directly connected to the
+small size of the test dataset.
+
+The most important finding of this work is that
+classification accuracy and probability quality are
+independent properties. A model can achieve high accuracy
+while producing unreliable probabilities, and on the other
+hand, a well-calibrated model can have relatively modest
+accuracy. This discrepancy has direct implications: in any
+context where probability estimates drive financial
+decisions, such as risk assessment, betting, and
+probabilistic model comparison, calibration should be
+evaluated explicitly and should not be inferred from
+classification performance alone.
+
+The two research questions posed at the outset of this paper
+were both addressed. Standard machine learning models were
+shown to produce varying levels of calibration quality, with
+only Logistic Regression achieving benchmark-level
+calibration naturally, while post-hoc calibration methods
+were shown to improve probabilistic quality of ensemble
+models without degrading classification accuracy, directly
+answering both research questions.
+
+The primary limitations of this work include its restriction
+to a single league and a single held-out season of 380
+matches, the use of pre-match features only, and the
+application of a single global Temperature Scaling parameter
+across all outcome classes despite non-uniform per-class
+calibration improvement.
+
+Several directions for future work have been identified.
+First, a single global temperature value should not be used
+for every class, as the improvement may not be uniform
+across all the classes. Then, this framework can be applied
+to a larger leagues and seasons dataset to properly assess
+the generalizability of these findings. Finally, if this
+framework is used for betting strategies or bookmaker
+financial decisions, the relationship between probability
+quality and profitability warrants should be properly
+investigated to identify positive expected returns on
+investment in practice.
+
+\section*{Acknowledgment}
+The author of this paper would like to express gratitude to Gagik Khalafyan for continuous support and guidance throughout all the stages from the very beginning of this project. His expertise and insights were instrumental for developing the analytical framework and the research direction.
+The author used Claude AI (Anthropic, 2025) for structural editing and grammar enhancement of the manuscript.
+This work was completed as a part of the Bachelor of Science in Data Science of the College of Science and Engineering capstone requirement of the American University of Armenia.
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} F. Rodrigues and A. Pinto, ``Prediction of football
+match results with machine learning,'' 2022. [Online]. Available:
+https://www.researchgate.net/publication/363472367
+
+\bibitem{b2} M. A. Rahman, ``A deep learning framework for
+football match prediction,'' \textit{Discover Applied Sciences},
+Jan. 2020. [Online]. Available: https://link.springer.com
+
+\bibitem{b3} B. S. Choi, L. K. Foo, and S.-L. Chua, ``Predicting
+football match outcomes with machine learning approaches,''
+\textit{MENDEL}, vol. 29, no. 2, pp. 229--240, 2023.
+https://doi.org/10.13164/mendel.2023.2.229
+
+\bibitem{b4} E. Christoffersson, ``Beating the odds: Machine
+learning for football match prediction,'' 2023. [Online].
+Available: https://www.diva-portal.org/smash/record.jsf?pid=diva2:1772002
+
+\bibitem{b5} C. Herbinet, ``Using machine learning techniques to
+predict the outcome of professional football matches,''
+Undergraduate Project Report, Imperial College London, 2018.
+[Online]. Available: https://www.imperial.ac.uk/media/imperial-college/
+faculty-of-engineering/computing/public/distinguished-projects/
+1718-ug-projects/Corentin-Herbinet-Using-Machine-Learning-techniques-to-predict-the-outcome-of-professional-football-matches.pdf
+
+\bibitem{b6} E. Wheatcroft and E. Sienkiewicz, ``Calibration and
+hyperparameter tuning in football forecasting with machine
+learning,'' 2023. [Online]. Available:
+https://www.researchgate.net/publication/352846677
+
+\bibitem{b7} E. Wheatcroft, ``Evaluating probabilistic forecasts
+of football matches: the case against the ranked probability
+score,'' \textit{Journal of Quantitative Analysis in Sports},
+vol. 17, no. 4, pp. 273--287, Dec. 2021.
+https://doi.org/10.1515/jqas-2019-0089
+
+\bibitem{b8} M. A. Diniz, R. Izbicki, D. Lopes, and L. E.
+Salasar, ``Comparing probabilistic predictive models applied to
+football,'' \textit{Journal of the Operational Research Society},
+vol. 70, no. 5, pp. 770--782, May 2019.
+https://doi.org/10.1080/01605682.2018.1457485
+
+\bibitem{b9} C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger,
+``On calibration of modern neural networks,'' in \textit{Proc.
+34th Int. Conf. Mach. Learn. (ICML)}, Sydney, Australia, 2017,
+pp. 1321--1330. [Online]. Available:
+https://arxiv.org/pdf/1706.04599
+
+\bibitem{b10} R. M. Galekwa, J. M. Tshimula, E. G. Tajeuna,
+and K. Kyandoghere, ``A systematic review of machine learning
+in sports betting: Techniques, challenges, and future
+directions,'' arXiv:2410.21484, Oct. 2024. [Online]. Available:
+https://arxiv.org/abs/2410.21484
+
+\bibitem{b11} J.-L. Foulley, ``More on verification of
+probability forecasts for football outcomes: score
+decompositions, reliability, and discrimination analyses,''
+arXiv:2106.14345, Jun. 2021. [Online]. Available:
+https://arxiv.org/abs/2106.14345
+
+\bibitem{b12} M. Kull, T. Silva Filho, and P. Flach, ``Beta
+calibration: A well-founded and easily implemented improvement
+on logistic calibration for binary classifiers,'' in
+\textit{Proc. 20th Int. Conf. Artif. Intell. Stat. (AISTATS)},
+Fort Lauderdale, FL, USA, 2017. [Online]. Available:
+https://proceedings.mlr.press/v54/kull17a.html
+
+\bibitem{b13} Football-Data.co.uk, ``Football data and
+results,'' [Online]. Available: https://www.football-data.co.uk
+
+\end{thebibliography}
+
+\end{document}
