@@ -100,7 +100,7 @@ Open **`http://localhost:8080/`** in your browser to inspect match-by-match prob
 
 ---
 
-## 🏆 2026/27 La Liga Standings (Real Matches Evaluated)
+## 🏆 2026/27 La Liga Standings 
 
 | Pos | Team | Played | Wins | Draws | Losses | Goal Diff | Points |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
