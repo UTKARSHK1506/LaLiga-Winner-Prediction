@@ -374,7 +374,7 @@ def run(main_path, elo_path, fifa_dir, output_path):
     df = engineer_features(df)
 
     df.to_csv(output_path, index=False)
-    print(f"Saved {len(df)} rows, {len(df.columns)} columns → {output_path}")
+    print(f"Saved {len(df)} rows, {len(df.columns)} columns -> {output_path}")
     return df
 
 
