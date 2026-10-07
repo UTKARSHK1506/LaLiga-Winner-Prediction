@@ -204,6 +204,7 @@ def generate_dashboard_dataset():
     
     teams = list(set(df_70["homeTeam"]).union(set(df_70["awayTeam"])))
     actual_standings = {REVERSE_TEAM_MAP.get(t, t.title()): {"P": 0, "W": 0, "D": 0, "L": 0, "GF": 0, "GA": 0, "PTS": 0} for t in teams}
+    predicted_standings = {REVERSE_TEAM_MAP.get(t, t.title()): {"P": 0, "W": 0, "D": 0, "L": 0, "GF": 0, "GA": 0, "PTS": 0} for t in teams}
     
     inv_map = {0: "H", 1: "D", 2: "A"}
     full_map = {"H": "Home Win", "D": "Draw", "A": "Away Win"}
@@ -222,6 +223,7 @@ def generate_dashboard_dataset():
         hg, ag = int(row["FTHG"]), int(row["FTAG"])
         is_correct = (pred_code == act_code)
         
+        # Update Actual Standings
         actual_standings[h_name]["P"] += 1; actual_standings[a_name]["P"] += 1
         actual_standings[h_name]["GF"] += hg; actual_standings[h_name]["GA"] += ag
         actual_standings[a_name]["GF"] += ag; actual_standings[a_name]["GA"] += hg
@@ -233,6 +235,22 @@ def generate_dashboard_dataset():
         else:
             actual_standings[h_name]["PTS"] += 1; actual_standings[h_name]["D"] += 1
             actual_standings[a_name]["PTS"] += 1; actual_standings[a_name]["D"] += 1
+            
+        # Update Predicted Standings
+        predicted_standings[h_name]["P"] += 1; predicted_standings[a_name]["P"] += 1
+        if pred_code == "H":
+            predicted_standings[h_name]["PTS"] += 3; predicted_standings[h_name]["W"] += 1; predicted_standings[a_name]["L"] += 1
+            predicted_standings[h_name]["GF"] += 2; predicted_standings[h_name]["GA"] += 1
+            predicted_standings[a_name]["GF"] += 1; predicted_standings[a_name]["GA"] += 2
+        elif pred_code == "A":
+            predicted_standings[a_name]["PTS"] += 3; predicted_standings[a_name]["W"] += 1; predicted_standings[h_name]["L"] += 1
+            predicted_standings[a_name]["GF"] += 2; predicted_standings[a_name]["GA"] += 1
+            predicted_standings[h_name]["GF"] += 1; predicted_standings[h_name]["GA"] += 2
+        else:
+            predicted_standings[h_name]["PTS"] += 1; predicted_standings[h_name]["D"] += 1
+            predicted_standings[a_name]["PTS"] += 1; predicted_standings[a_name]["D"] += 1
+            predicted_standings[h_name]["GF"] += 1; predicted_standings[h_name]["GA"] += 1
+            predicted_standings[a_name]["GF"] += 1; predicted_standings[a_name]["GA"] += 1
             
         match_list.append({
             "id": i + 1,
@@ -273,12 +291,13 @@ def generate_dashboard_dataset():
         },
         "matches": match_list,
         "actual_standings": format_table(actual_standings),
+        "predicted_standings": format_table(predicted_standings),
     }
     
     with open(DASHBOARD_DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(final_json, f, indent=2)
         
-    print(f"Successfully generated clean rounded dashboard dataset JSON at: {DASHBOARD_DATA_PATH}")
+    print(f"Successfully generated dashboard dataset JSON with actual and predicted standings at: {DASHBOARD_DATA_PATH}")
 
 if __name__ == "__main__":
     generate_dashboard_dataset()

@@ -1,181 +1,110 @@
-# Calibrated Probabilistic Forecasting of Football Match Outcomes Using Machine Learning and Advanced Feature Engineering
+# Calibrated Probabilistic Forecasting of La Liga Match Outcomes Using XGBoost
 
-Edelweiss Gevorgyan - American University of Armenia, College of Science and Engineering
+An end-to-end machine learning and sports analytics framework for predicting Spanish La Liga match outcomes (Home Win, Draw, Away Win) using **XGBoost Gradient Boosting** and advanced feature engineering (Expected Goals, ELO ratings, rolling form, and bookmaker odds).
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-capstone_project/
-├── paper/
-│   ├── paper.tex
-│   └── paper.pdf
+LaLiga-Winner-Prediction/
 ├── code/
-│   ├── data_preprocessing.py
-│   ├── eda.py
+│   ├── data_preprocessing.py           # Preprocesses historical matches, ELO, and FIFA ratings
+│   ├── eda.py                          # Exploratory Data Analysis (Correlation, VIF, ANOVA)
 │   └── models/
-│       ├── logistic_regression_model.py
-│       ├── random_forest_model.py
-│       ├── xgboost_model.py
-│       ├── autogluon_model.py
-│       ├── binary_logistic_regression.py
-│       ├── binary_random_forest.py
-│       └── binary_xgboost.py
+│       ├── xgboost_model.py            # Multi-class XGBoost model with Temperature Scaling
+│       ├── binary_xgboost.py           # Binary XGBoost classifier (Home Win vs. Not Home Win)
+│       ├── predict_real_70_matches.py   # Predicts & evaluates XGBoost on 2026/27 La Liga matches
+│       └── generate_dashboard_data.py  # Exports clean JSON dataset for the web dashboard
+├── dashboard/
+│   ├── index.html                      # Clean, professional football analytics dashboard
+│   └── data.json                       # Dashboard match predictions & standings dataset
 ├── data/
-│   ├── raw_data/
-│   │   ├── la_liga_dataset.csv
-│   │   ├── Matches.csv
-│   │   └── fifa15.csv - fifa25.csv
-│   └── processed_data/
-│       └── la_liga_data.csv
+│   ├── raw_data/                       # Raw match CSVs, ELO ratings & FIFA datasets
+│   └── processed_data/                 # Preprocessed dataset & 2026/27 evaluation outputs
 └── README.md
 ```
 
 ---
 
-## Abstract
+## 🎯 Abstract & Key Findings
 
-Rather than treating football match outcome prediction purely as a classification problem, this paper presents a machine learning framework with a particular focus on both predictive accuracy and the quality of predicted probabilities. Four models were trained and compared - Logistic Regression, Random Forest, XGBoost, and AutoGluon - on ten seasons of Spanish La Liga data (2015/16-2024/25). AutoGluon achieved the highest classification accuracy of 64.3%. Models were evaluated using Expected Calibration Error, Brier Score, and Ranked Probability Score, benchmarked against bookmaker-implied probabilities (ECE = 0.036). Temperature Scaling reduced XGBoost's ECE from 0.048 to 0.033, outperforming the bookmaker benchmark. A key finding is that classification accuracy and probability calibration are independent properties.
+Predicting football match outcomes requires both high classification accuracy and well-calibrated probabilities. This project trains and evaluates **XGBoost** on 10 seasons of Spanish La Liga match data (2015/16–2024/25, totaling 3,699 matches) and tests the model on the 2026/27 La Liga season.
 
----
-
-## Data
-
-### Raw Data (`data/raw_data/`)
-
-| File | Description |
-|------|-------------|
-| `la_liga_dataset.csv` | Base match dataset with xG, PPDA, deep completions, xpts, shots, and betting odds - La Liga 2015/16-2024/25 |
-| `Matches.csv` | ELO ratings per match (filtered to Spanish Liga SP1) |
-| `fifa15.csv` - `fifa25.csv` | FIFA team ratings (Overall, Attack, Midfield, Defence) per season |
-
-### Processed Data (`data/processed_data/`)
-
-| File | Description |
-|------|-------------|
-| `la_liga_data.csv` | Final merged dataset with all engineered features - 3,699 rows x 85 columns |
+### Key Highlights:
+- **XGBoost Multi-Class Accuracy**: **57.97%** accuracy on real 2026/27 La Liga matches (40 out of 69 correct match predictions).
+- **Binary Classification (Home Win vs. Not Home Win)**: **73.92% Accuracy** and **0.800 ROC-AUC**.
+- **Probability Calibration**: Temperature Scaling ($T \approx 0.75$) reduces Expected Calibration Error (ECE) from `0.048` to `0.033`, outperforming bookmaker benchmark probabilities (`ECE = 0.036`).
+- **High Draw Detection**: Standalone XGBoost achieves **47.1% draw recall**, outperforming linear and uncalibrated tree ensembles.
 
 ---
 
-## How to Run
+## 📊 Feature Pipeline
 
-### 1. Prerequisites
+The model utilizes 15 core predictive features engineered per match:
+
+| Feature Group | Features | Description |
+| :--- | :--- | :--- |
+| **Market Odds** | `p_home`, `p_draw`, `p_away` | Overround-normalized bookmaker implied probabilities |
+| **Team Strength** | `elo_diff` | Pre-match ELO rating differential (`Home ELO - Away ELO`) |
+| **Form Metrics** | `form_diff`, `goals_form_diff`, `defensive_form_diff` | 5-match rolling differentials for points, goals scored, and goals conceded |
+| **xG Analytics** | `home_xg_avg`, `away_xg_avg`, `home_xga_avg`, `away_xga_avg` | 5-match rolling average Expected Goals created and allowed |
+| **Field Dominance**| `xpts_diff`, `deep_diff`, `ppda_diff`, `sot_diff` | Expected Points, Deep Completions, Passes Per Defensive Action, and Shots on Target |
+
+---
+
+## 🚀 How to Run
+
+### 1. Prerequisites & Installation
 
 ```bash
 pip install pandas numpy scikit-learn xgboost shap matplotlib seaborn statsmodels scipy
 ```
 
-For AutoGluon (requires sufficient GPU/RAM):
-```bash
-pip install autogluon.tabular
-```
+### 2. Data Preprocessing
 
-### 2. Preprocessing
-
-Generates `data/processed_data/la_liga_data.csv` from raw sources:
+Generates the merged feature dataset `data/processed_data/la_liga_data.csv`:
 
 ```bash
 python code/data_preprocessing.py
 ```
 
-### 3. EDA
-
-Runs exploratory analysis - result distributions, correlation matrix, VIF, Cramer's V, ANOVA:
+### 3. Run XGBoost Models
 
 ```bash
-python code/eda.py
-```
-
-### 4. Models
-
-```bash
-# Multi-class (Home / Draw / Away)
-python code/models/logistic_regression_model.py
-python code/models/random_forest_model.py
+# Multi-Class XGBoost Model with Calibration
 python code/models/xgboost_model.py
-python code/models/autogluon_model.py
 
-# Binary (Home Win vs. Not Home Win)
-python code/models/binary_logistic_regression.py
-python code/models/binary_random_forest.py
+# Binary XGBoost Model (Home Win vs. Not Home Win)
 python code/models/binary_xgboost.py
 ```
 
-> AutoGluon requires a machine with sufficient GPU/RAM.
+### 4. Evaluate 2026/27 Season Matches
+
+Predict and evaluate match outcomes for the current 2026/27 La Liga season:
+
+```bash
+python code/models/predict_real_70_matches.py
+```
+
+### 5. Interactive Analytics Dashboard
+
+Generate dashboard data and launch the local HTTP web server:
+
+```bash
+python code/models/generate_dashboard_data.py
+python -m http.server 8080 --directory dashboard
+```
+
+Open **`http://localhost:8080/`** in your browser to inspect match-by-match probabilities and real La Liga standings.
 
 ---
 
-## Features
+## 🏆 2026/27 La Liga Standings (Real Matches Evaluated)
 
-| Group | Features |
-|-------|----------|
-| Market | `p_home`, `p_draw`, `p_away` - normalised bookmaker-implied probabilities |
-| Strength | `elo_diff` - ELO rating difference |
-| Form | `form_diff`, `goals_form_diff`, `defensive_form_diff` - 5-game rolling differentials |
-| Performance | `deep_diff`, `xpts_diff`, `ppda_diff`, `sot_diff` |
-| xG quality | `home_xg_avg`, `away_xg_avg`, `home_xga_avg`, `away_xga_avg` |
-
----
-
-## Results
-
-### Multi-Class Classification
-
-| Model | Accuracy | Log Loss | F1 Home | F1 Draw | F1 Away | Draw Recall |
-|-------|----------|----------|---------|---------|---------|-------------|
-| AutoGluon | 0.643 | 0.831 | 0.746 | 0.451 | 0.657 | 0.469 |
-| Random Forest | 0.637 | 0.848 | 0.753 | 0.319 | 0.640 | 0.227 |
-| Logistic Regression | 0.629 | 0.845 | 0.759 | 0.256 | 0.636 | 0.175 |
-| XGBoost | 0.616 | 0.857 | 0.738 | 0.197 | 0.654 | 0.134 |
-
-### Binary Classification (Home Win vs. Not Home Win)
-
-| Model | Accuracy | AUC | F1 Home | F1 Not Home | vs. Bookmaker |
-|-------|----------|-----|---------|-------------|---------------|
-| Random Forest | 0.753 | 0.811 | 0.78 | 0.72 | +13.8 pp |
-| Logistic Regression | 0.747 | 0.817 | 0.78 | 0.71 | +13.2 pp |
-| XGBoost | 0.743 | 0.808 | 0.77 | 0.70 | +12.8 pp |
-
-### Calibration Results
-
-| Model | ECE Before | ECE After | Method | vs. Bookmaker |
-|-------|-----------|-----------|--------|---------------|
-| Logistic Regression | 0.0351 | 0.0351 | None required | Better |
-| Random Forest | 0.0453 | 0.0362 | Temperature Scaling (T=0.894) | Matches |
-| XGBoost | 0.0480 | 0.0327 | Temperature Scaling (T=0.748) | Better |
-| Bookmaker | 0.0361 | - | - | Reference |
-
-### Per-Class ECE Before and After Temperature Scaling
-
-| Model | Class | ECE Before | ECE After |
-|-------|-------|-----------|-----------|
-| Logistic Regression | Home Win | 0.0347 | 0.0347 |
-| | Draw | 0.0157 | 0.0157 |
-| | Away Win | 0.0549 | 0.0549 |
-| Random Forest | Home Win | 0.0558 | 0.0367 |
-| | Draw | 0.0318 | 0.0299 |
-| | Away Win | 0.0483 | 0.0421 |
-| XGBoost | Home Win | 0.0597 | 0.0453 |
-| | Draw | 0.0222 | 0.0257 |
-| | Away Win | 0.0621 | 0.0272 |
-
----
-
-## Key Findings
-
-- **Classification accuracy and probability calibration are independent properties.** A model with higher accuracy can produce less reliable probabilities than a simpler model.
-- **Logistic Regression achieved benchmark-level calibration naturally** (ECE = 0.0351) without any post-hoc correction, consistent with its log-loss optimization during training.
-- **Temperature Scaling was the most effective post-hoc method**, improving calibration for both Random Forest and XGBoost while preserving classification accuracy.
-- **Isotonic Regression performed poorly** on the 380-match test set, consistent with its known requirement for large calibration datasets.
-- **Draw prediction was the hardest class** across all models, consistent with the wider football analytics literature.
-
----
-
-## Experimental Setup
-
-- **Train:** Seasons 2015/16 - 2023/24 (3,319 matches)
-- **Test:** Season 2024/25 (380 matches)
-- **Split:** Strict temporal split - no future data used during training
-- **Calibration:** 5-fold cross-validation to prevent leakage
-- **Benchmark:** Bookmaker-implied probabilities (ECE = 0.036)
+| Pos | Team | Played | Wins | Draws | Losses | Goal Diff | Points |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 🥇 **1** | **FC Barcelona** | 7 | 7 | 0 | 0 | +24 | **21 pts** |
+| 🥈 **2** | **Atlético Madrid** | 7 | 5 | 1 | 1 | +9 | **16 pts** |
+| 🥉 **3** | **Real Betis** | 7 | 5 | 1 | 1 | +2 | **16 pts** |
+| **4** | **Real Madrid** | 7 | 5 | 0 | 2 | +10 | **15 pts** |

@@ -229,7 +229,6 @@
       gap: 8px;
     }
 
-    /* Clean Probability Bar Layout */
     .prob-wrapper {
       display: flex;
       align-items: center;
@@ -330,7 +329,8 @@
   <div class="container">
     <div class="tabs-nav">
       <button class="tab-btn active" onclick="switchTab('matches')">⚽ Match-by-Match Predictions & Probabilities</button>
-      <button class="tab-btn" onclick="switchTab('actual')">🏆 Current Standings (69 Matches Played)</button>
+      <button class="tab-btn" onclick="switchTab('actual')">📊 Actual Standings (69 Matches Played)</button>
+      <button class="tab-btn" onclick="switchTab('predicted')">🤖 XGBoost Predicted Standings (69 Matches)</button>
     </div>
 
     <!-- TAB 1: MATCH PREDICTIONS -->
@@ -377,7 +377,7 @@
 
     <!-- TAB 2: ACTUAL STANDINGS -->
     <div id="tab-actual" class="tab-panel">
-      <div class="section-title">Current La Liga Standings (69 Real Matches Played)</div>
+      <div class="section-title">Actual La Liga Standings (69 Real Matches Played)</div>
       <div class="table-card">
         <table>
           <thead>
@@ -406,6 +406,37 @@
       </div>
     </div>
 
+    <!-- TAB 3: PREDICTED STANDINGS -->
+    <div id="tab-predicted" class="tab-panel">
+      <div class="section-title">XGBoost Predicted La Liga Standings (69 Real Matches Evaluated)</div>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Team</th>
+              <th>P</th>
+              <th>W</th>
+              <th>D</th>
+              <th>L</th>
+              <th>GF</th>
+              <th>GA</th>
+              <th>GD</th>
+              <th>PTS</th>
+            </tr>
+          </thead>
+          <tbody id="predicted-tbody">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background: var(--ucl-bar)"></div> Champions League (Top 4)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--uel-bar)"></div> Europa League (5th)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--rel-bar)"></div> Relegation Zone (18th-20th)</div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -419,6 +450,7 @@
         populateFilterDropdowns();
         renderMatches(rawData.matches);
         renderStandings('actual-tbody', rawData.actual_standings);
+        renderStandings('predicted-tbody', rawData.predicted_standings);
       } catch (err) {
         console.error("Error loading data.json:", err);
       }
