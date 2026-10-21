@@ -116,9 +116,3 @@ Open **`http://localhost:8080/`** in your browser.
 | **6** | Deportivo Alavés | 9 | 4 | 3 | 2 | 12 | 9 | +3 | **15 pts** |
 
 ---
-
-## 📈 Detailed Metrics & Viva Voce Guide
-
-For the full confusion matrix, ROC-AUC breakdown, Brier scores, Cohen's Kappa, and comprehensive technical Q&A defense answers, consult:
-- **[`MODEL_METRICS.md`](./MODEL_METRICS.md)**: Full evaluation metrics and viva defense guide
-- **[`ARCHITECTURE.md`](./ARCHITECTURE.md)**: System design and modular pipeline documentation
