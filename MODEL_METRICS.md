@@ -1,6 +1,6 @@
 # Model Features & Comprehensive Evaluation Metrics Report
 > **Project:** Spanish La Liga Match Outcome Prediction & Standings Forecasting  
-> **Course / Academic Defense:** Machine Learning & Sports Analytics (Viva Presentation Ready)  
+> **Domain:** Sports Analytics & Probabilistic Machine Learning  
 > **Primary Architecture:** Multi-Class XGBoost with Temperature Scaling & 10,000 Monte Carlo Season Simulations  
 
 ---
@@ -76,7 +76,7 @@ $$\begin{array}{c|ccc|c}
 | **Macro Average** | **0.5500** | **0.5519** | **0.5280** | **88** |
 | **Weighted Average** | **0.5568** | **0.5909** | **0.5518** | **88** |
 
-> **Key Observation for Viva:** Notice that **Home Win Recall is 81.58%** and **Away Win Precision is 65.38%**, demonstrating strong discrimination on decisive outcomes. The model avoids the common pitfall of naive tree models predicting zero draws.
+> **Analytical Insight:** Notice that **Home Win Recall is 81.58%** and **Away Win Precision is 65.38%**, demonstrating strong discrimination on decisive outcomes. The model avoids the common pitfall of naive tree models predicting zero draws.
 
 ---
 
@@ -118,7 +118,7 @@ Where $T$ is optimized on a validation holdout using negative log-likelihood min
 
 ## 5. Standings Forecasting Evaluation (Table Agreement)
 
-A critical viva dimension is evaluating how well the model reconstructs the league table relative to actual standings:
+A core evaluation dimension is measuring how well the model reconstructs the league standings table relative to ground truth:
 
 | Metric | Formula / Description | Value |
 | :--- | :--- | :---: |
@@ -221,19 +221,19 @@ Other 8 Features         ███                    4.9%    100.0%
 
 ---
 
-## 8. Viva Voce Defense Preparation & Technical Q&A
+## 8. Technical Architecture Decisions & Methodological Justifications
 
-### Q1: Why did you choose XGBoost instead of a Deep Learning approach (e.g., LSTM, Transformer)?
-> **Defense Answer:** Tabular sports datasets inherently feature heterogeneous feature distributions (bounded market probabilities, continuous ELO differentials, discrete rolling goal tallies). Tree-based gradient boosting models consistently outperform neural networks on tabular data (Grinsztajn et al., *NeurIPS 2022*). XGBoost natively handles missingness, limits overfitting via shrinkage ($\eta = 0.05$) and $L_1/L_2$ regularization ($\alpha, \lambda$), and provides deterministic tree-structure interpretability via SHAP.
+### 8.1 Model Selection Rationale: Gradient Boosted Trees vs. Deep Neural Networks
+Tabular sports datasets inherently feature heterogeneous feature distributions (bounded market probabilities, continuous ELO differentials, and discrete rolling goal tallies). Tree-based gradient boosting models consistently outperform neural networks on tabular datasets (Grinsztajn et al., *NeurIPS 2022*). XGBoost natively handles irregular distributions, prevents overfitting via shrinkage ($\eta = 0.05$) and $L_1/L_2$ regularization ($\alpha = 0.1, \lambda = 1.0$), and provides deterministic tree-structure interpretability via SHAP.
 
-### Q2: Why is the "Draw" outcome notoriously difficult to predict in football analytics?
-> **Defense Answer:** In football, draws represent an equilibrium outcome rather than an intentional target state. Matches frequently enter draw states due to low scoring frequency (Poisson $\lambda \approx 1.35$ goals/team). While naive models predict only Home/Away wins to artificially maximize accuracy, our standalone XGBoost model achieves **40.0% precision** on draws by identifying parity conditions in pressing (`ppda_diff`) and chance quality (`xpts_diff`).
+### 8.2 Modeling Draw Equilibrium in Low-Scoring Match Dynamics
+In association football, draws represent an equilibrium state rather than an intentional target state. Matches frequently enter draw states due to low scoring frequency (Poisson $\lambda \approx 1.35$ goals/team). While naive models predict exclusively Home or Away wins to artificially inflate accuracy, the calibrated XGBoost model achieves **40.0% precision** on draws by isolating tactical parity conditions in pressing intensity (`ppda_diff`) and chance quality (`xpts_diff`).
 
-### Q3: What is the purpose of Temperature Scaling?
-> **Defense Answer:** Standard gradient boosting tree ensembles optimize for multi-class cross-entropy, which frequently leads to overconfident probability estimates near 0 and 1. Temperature scaling applies a single learned parameter $T > 0$ to soften the logit vector without altering class rankings ($\text{argmax}$). This reduces Expected Calibration Error (ECE) from 0.048 to 0.033, ensuring our probabilities reflect true empirical frequencies for the Monte Carlo simulation.
+### 8.3 Post-Hoc Probability Calibration via Temperature Scaling
+Standard gradient boosting tree ensembles optimize for multi-class cross-entropy, which frequently leads to overconfident probability estimates near 0 and 1. Temperature scaling applies a single learned parameter $T > 0$ ($T^* \approx 0.754$) to soften the logit vector without altering class rankings ($\text{argmax}$). This reduces Expected Calibration Error (ECE) from 0.048 to 0.033, ensuring the predicted probabilities accurately reflect empirical frequencies for downstream simulation.
 
-### Q4: How does your Monte Carlo simulation preserve realistic football variance?
-> **Defense Answer:** Rather than assuming static averages, each fixture outcome is sampled from the calibrated XGBoost categorical distribution $\text{Categorical}(p_H, p_D, p_A)$. Goal scoring is modeled using bi-variate Poisson distributions incorporating team attack and defense ratings. Running 10,000 full-season iterations produces realistic points variance ($\sigma \approx 5.5$ PTS) and empirically validated 90% confidence intervals.
+### 8.4 Preserving Realistic Variance in 10,000 Monte Carlo Iterations
+Rather than projecting static point expectations, each unplayed fixture outcome is sampled from the calibrated XGBoost categorical distribution $\text{Categorical}(p_H, p_D, p_A)$. Goal scoring is modeled using bi-variate Poisson distributions incorporating team attack and defense ratings. Running 10,000 full-season trajectories generates realistic point distributions ($\sigma \approx 5.5$ PTS) and empirically validated 90% confidence intervals.
 
-### Q5: How was data leakage prevented across rolling features?
-> **Defense Answer:** All rolling metrics (`form_diff`, `home_xg_avg`, `goals_form_diff`) use strictly lagged windows ($\text{Match}_{t-1}$ to $\text{Match}_{t-5}$). A match occurring on Matchday 9 only has access to matches completed on or before Matchday 8. ELO ratings are updated strictly post-match using standard K-factor updating ($K=32$).
+### 8.5 Strict Causal Lagging to Prevent Temporal Data Leakage
+All rolling features (`form_diff`, `home_xg_avg`, `goals_form_diff`) are calculated using strictly lagged historical windows ($\text{Match}_{t-1}$ to $\text{Match}_{t-5}$). A fixture occurring on Matchday 9 only has access to matches completed on or before Matchday 8. Furthermore, ELO ratings are updated strictly post-match using standard K-factor updating ($K=32$).

@@ -24,7 +24,7 @@ LaLiga-Winner-Prediction/
 ├── data/
 │   ├── raw_data/                             # Raw match CSVs, ELO ratings & player statistics
 │   └── processed_data/                       # Preprocessed datasets & official 380-match fixture calendar
-├── MODEL_METRICS.md                          # Comprehensive viva evaluation metrics & technical Q&A report
+├── MODEL_METRICS.md                          # Comprehensive model evaluation metrics & technical specifications
 ├── ARCHITECTURE.md                           # Technical architecture & pipeline specifications
 └── README.md
 ```

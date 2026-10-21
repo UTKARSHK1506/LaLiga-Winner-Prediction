@@ -94,7 +94,7 @@ flowchart TD
 ```text
 LaLiga-Winner-Prediction/
 ├── ARCHITECTURE.md                  # System Architecture Specifications
-├── MODEL_METRICS.md                 # Full Evaluation Metrics & Viva Defense Guide
+├── MODEL_METRICS.md                 # Full Evaluation Metrics & Technical Report
 ├── README.md                        # Project documentation & setup guide
 ├── code/
 │   ├── data_preprocessing.py        # Feature extraction and dataset preparation
