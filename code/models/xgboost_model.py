@@ -119,9 +119,11 @@ print(draw_cases.head())
 # SHAP
 # ---------------------------------------------------------------------------
 
-explainer   = shap.TreeExplainer(xgb)
-shap_values = explainer.shap_values(X_test[features])
-shap.summary_plot(shap_values, X_test[features])
+try:
+    explainer   = shap.Explainer(xgb, X_train[features])
+    shap_values = explainer(X_test[features])
+except Exception as e:
+    print(f"SHAP calculation skipped: {e}")
 
 # ---------------------------------------------------------------------------
 # Calibration metrics
@@ -217,7 +219,7 @@ sharp_book    = compute_sharpness(probs_book)
 ll_book       = log_loss(y_true, probs_book)
 
 print("=" * 55)
-print("CALIBRATION METRICS — XGBoost (Uncalibrated)")
+print("CALIBRATION METRICS - XGBoost (Uncalibrated)")
 print("=" * 55)
 print(f"Log Loss:              {ll:.4f}  (Bookmaker: {ll_book:.4f})")
 print(f"Brier Score (overall): {brier_overall:.4f}  (Bookmaker: {brier_book:.4f})")
@@ -320,8 +322,12 @@ for idx, (ax, class_name) in enumerate(zip(axes, CLASS_NAMES)):
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
+os.makedirs(os.path.join(os.path.dirname(__file__), "..", "visualizations"), exist_ok=True)
+plot_path = os.path.join(os.path.dirname(__file__), "..", "visualizations", "xgboost_calibration.png")
 plt.tight_layout()
-plt.show()
+plt.savefig(plot_path)
+plt.close()
+print(f"Calibration plot saved to {plot_path}")
 
 # ---------------------------------------------------------------------------
 # Confidence vs accuracy

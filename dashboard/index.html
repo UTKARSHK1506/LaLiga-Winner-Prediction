@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LALIGA 2026/27 Analytics & Match Evaluation Dashboard</title>
+  <style>
+    :root {
+      --bg-main: #f4f6f9;
+      --bg-card: #ffffff;
+      --border-color: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0f172a;
+      --laliga-dark: #111827;
+      --laliga-red: #e11d48;
+      
+      --win-bg: #dcfce7;
+      --win-text: #15803d;
+      --loss-bg: #fee2e2;
+      --loss-text: #b91c1c;
+      --draw-bg: #fef3c7;
+      --draw-text: #b45309;
+      
+      --ucl-bar: #2563eb;
+      --uel-bar: #d97706;
+      --rel-bar: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+
+    header {
+      background-color: var(--laliga-dark);
+      color: #ffffff;
+      padding: 20px 32px;
+      border-bottom: 3px solid var(--laliga-red);
+    }
+
+    .header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand p {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .metrics-summary {
+      display: flex;
+      gap: 24px;
+    }
+
+    .metric-item {
+      text-align: right;
+    }
+
+    .metric-item .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .metric-item .label {
+      font-size: 11px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      color: var(--laliga-dark);
+      border-bottom-color: var(--laliga-red);
+    }
+
+    .controls-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    select, input {
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 13px;
+      background: #fff;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .stats-badge {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: #f1f5f9;
+      padding: 6px 12px;
+      border-radius: 4px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f8fafc;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    .team-cell {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Clean Probability Bar Layout */
+    .prob-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .prob-bar-container {
+      display: flex;
+      height: 14px;
+      width: 120px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: #e2e8f0;
+      flex-shrink: 0;
+    }
+
+    .prob-bar-h { background-color: #2563eb; }
+    .prob-bar-d { background-color: #94a3b8; }
+    .prob-bar-a { background-color: #dc2626; }
+
+    .prob-text {
+      font-size: 12px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .badge-yes { background: #dcfce7; color: #15803d; }
+    .badge-no { background: #fee2e2; color: #b91c1c; }
+
+    .pos-ucl { border-left: 4px solid var(--ucl-bar); }
+    .pos-uel { border-left: 4px solid var(--uel-bar); }
+    .pos-rel { border-left: 4px solid var(--rel-bar); }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <h1>LALIGA EA SPORTS 2026/27</h1>
+        <p>Real Matches Evaluation Dashboard (Standalone XGBoost Model)</p>
+      </div>
+      <div class="metrics-summary">
+        <div class="metric-item">
+          <div class="value" id="hdr-played-acc">57.97%</div>
+          <div class="label">XGBoost Accuracy</div>
+        </div>
+        <div class="metric-item">
+          <div class="value" id="hdr-played-cnt">69</div>
+          <div class="label">Real Matches Evaluated</div>
+        </div>
+        <div class="metric-item">
+          <div class="value">40 / 69</div>
+          <div class="label">Correct Predictions</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('matches')">⚽ Match-by-Match Predictions & Probabilities</button>
+      <button class="tab-btn" onclick="switchTab('actual')">🏆 Current Standings (69 Matches Played)</button>
+    </div>
+
+    <!-- TAB 1: MATCH PREDICTIONS -->
+    <div id="tab-matches" class="tab-panel active">
+      <div class="controls-card">
+        <div class="control-group">
+          <label for="filter-matchday">Matchday:</label>
+          <select id="filter-matchday" onchange="applyMatchFilters()">
+            <option value="ALL">All Matchdays</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="filter-team">Team:</label>
+          <select id="filter-team" onchange="applyMatchFilters()">
+            <option value="ALL">All Teams</option>
+          </select>
+        </div>
+
+        <div class="stats-badge" id="match-count-badge">Showing 69 matches</div>
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Matchday</th>
+              <th>Date</th>
+              <th>Fixture (Home vs Away)</th>
+              <th>Actual Score</th>
+              <th>Actual Result</th>
+              <th>XGBoost Predicted Outcome</th>
+              <th>Probability Breakdown (H / D / A)</th>
+              <th>Correct?</th>
+            </tr>
+          </thead>
+          <tbody id="matches-tbody">
+            <!-- Dynamic Match Rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: ACTUAL STANDINGS -->
+    <div id="tab-actual" class="tab-panel">
+      <div class="section-title">Current La Liga Standings (69 Real Matches Played)</div>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Team</th>
+              <th>P</th>
+              <th>W</th>
+              <th>D</th>
+              <th>L</th>
+              <th>GF</th>
+              <th>GA</th>
+              <th>GD</th>
+              <th>PTS</th>
+            </tr>
+          </thead>
+          <tbody id="actual-tbody">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background: var(--ucl-bar)"></div> Champions League (Top 4)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--uel-bar)"></div> Europa League (5th)</div>
+        <div class="legend-item"><div class="legend-color" style="background: var(--rel-bar)"></div> Relegation Zone (18th-20th)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let rawData = null;
+
+    async function initDashboard() {
+      try {
+        const resp = await fetch('data.json');
+        rawData = await resp.json();
+        
+        populateFilterDropdowns();
+        renderMatches(rawData.matches);
+        renderStandings('actual-tbody', rawData.actual_standings);
+      } catch (err) {
+        console.error("Error loading data.json:", err);
+      }
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    function populateFilterDropdowns() {
+      const matchdaySelect = document.getElementById('filter-matchday');
+      const matchdays = Array.from(new Set(rawData.matches.map(m => m.matchday))).sort((a,b)=>a-b);
+      matchdays.forEach(md => {
+        const opt = document.createElement('option');
+        opt.value = md;
+        opt.textContent = `Matchday ${md}`;
+        matchdaySelect.appendChild(opt);
+      });
+
+      const teamSelect = document.getElementById('filter-team');
+      const teams = Array.from(new Set(rawData.matches.map(m => m.home))).sort();
+      teams.forEach(team => {
+        const opt = document.createElement('option');
+        opt.value = team;
+        opt.textContent = team;
+        teamSelect.appendChild(opt);
+      });
+    }
+
+    function applyMatchFilters() {
+      const md = document.getElementById('filter-matchday').value;
+      const team = document.getElementById('filter-team').value;
+
+      let filtered = rawData.matches.filter(m => {
+        if (md !== 'ALL' && m.matchday != md) return false;
+        if (team !== 'ALL' && m.home !== team && m.away !== team) return false;
+        return true;
+      });
+
+      renderMatches(filtered);
+    }
+
+    function renderMatches(matches) {
+      const tbody = document.getElementById('matches-tbody');
+      tbody.innerHTML = '';
+
+      document.getElementById('match-count-badge').textContent = `Showing ${matches.length} matches`;
+
+      matches.forEach(m => {
+        const tr = document.createElement('tr');
+        const correctBadge = m.correct ? `<span class="badge badge-yes">YES</span>` : `<span class="badge badge-no">NO</span>`;
+
+        const ph = Number(m.p_home).toFixed(1);
+        const pd = Number(m.p_draw).toFixed(1);
+        const pa = Number(m.p_away).toFixed(1);
+
+        const probDisplay = `
+          <div class="prob-wrapper">
+            <div class="prob-bar-container" title="Home: ${ph}%, Draw: ${pd}%, Away: ${pa}%">
+              <div class="prob-bar-h" style="width: ${ph}%"></div>
+              <div class="prob-bar-d" style="width: ${pd}%"></div>
+              <div class="prob-bar-a" style="width: ${pa}%"></div>
+            </div>
+            <span class="prob-text">${ph}% / ${pd}% / ${pa}%</span>
+          </div>
+        `;
+
+        tr.innerHTML = `
+          <td>${m.id}</td>
+          <td>MD ${m.matchday}</td>
+          <td>${m.date}</td>
+          <td class="team-cell">${m.home} <span style="color:var(--text-muted)">vs</span> ${m.away}</td>
+          <td><strong>${m.score}</strong></td>
+          <td><strong>${m.actual_result}</strong></td>
+          <td><strong>${m.pred_text}</strong></td>
+          <td>${probDisplay}</td>
+          <td>${correctBadge}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderStandings(tbodyId, standings) {
+      const tbody = document.getElementById(tbodyId);
+      tbody.innerHTML = '';
+
+      standings.forEach(row => {
+        const tr = document.createElement('tr');
+        
+        if (row.Pos <= 4) tr.classList.add('pos-ucl');
+        else if (row.Pos === 5) tr.classList.add('pos-uel');
+        else if (row.Pos >= 18) tr.classList.add('pos-rel');
+
+        const gdStr = row.GD > 0 ? `+${row.GD}` : row.GD;
+
+        tr.innerHTML = `
+          <td><strong>${row.Pos}</strong></td>
+          <td class="team-cell">${row.team}</td>
+          <td>${row.P}</td>
+          <td>${row.W}</td>
+          <td>${row.D}</td>
+          <td>${row.L}</td>
+          <td>${row.GF}</td>
+          <td>${row.GA}</td>
+          <td>${gdStr}</td>
+          <td><strong>${row.PTS}</strong></td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.onload = initDashboard;
+  </script>
+</body>
+</html>
